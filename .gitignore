@@ -45,5 +45,5 @@ Thumbs.db
 .streamlit/secrets.toml
 
 # Large files
-# *.pkl - keeping model files for deployment
+*.pkl
 *.csv

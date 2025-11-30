@@ -1,6 +1,7 @@
 import streamlit as st
 import pickle
 import pandas as pd
+import os
 
 # Set page configuration
 st.set_page_config(
@@ -13,13 +14,50 @@ st.set_page_config(
 # Load model and encoders
 @st.cache_resource
 def load_models():
-    with open('model.pkl', 'rb') as model_file:
-        model = pickle.load(model_file)
-    with open('label_encoders.pkl', 'rb') as enc_file:
-        label_encoders = pickle.load(enc_file)
-    with open('target_encoder.pkl', 'rb') as target_file:
-        le_target = pickle.load(target_file)
-    return model, label_encoders, le_target
+    """Load or create models"""
+    try:
+        with open('model.pkl', 'rb') as model_file:
+            model = pickle.load(model_file)
+        with open('label_encoders.pkl', 'rb') as enc_file:
+            label_encoders = pickle.load(enc_file)
+        with open('target_encoder.pkl', 'rb') as target_file:
+            le_target = pickle.load(target_file)
+        return model, label_encoders, le_target
+    except FileNotFoundError:
+        st.error("⚠️ Model files not found locally. Training model...")
+        # Create and train a simple model as fallback
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.preprocessing import LabelEncoder
+        import numpy as np
+        import pandas as pd
+        
+        # Try to load cleaned dataset
+        try:
+            data = pd.read_csv('dataset_cleaned.csv')
+            st.info("📊 Training model with dataset...")
+            
+            # Prepare data
+            label_encoders = {}
+            for column in ['Course Name', 'Location']:
+                le = LabelEncoder()
+                data[column] = le.fit_transform(data[column])
+                label_encoders[column] = le
+            
+            le_target = LabelEncoder()
+            data['Institute Name'] = le_target.fit_transform(data['Institute Name'])
+            
+            # Train model
+            X = data[['Percentile', 'Course Name', 'Location']]
+            y = data['Institute Name']
+            
+            model = RandomForestClassifier(n_estimators=100, max_depth=15, random_state=42)
+            model.fit(X, y)
+            
+            st.success("✅ Model trained successfully!")
+            return model, label_encoders, le_target
+        except Exception as e:
+            st.error(f"Failed to train model: {str(e)}")
+            st.stop()
 
 try:
     model, label_encoders, le_target = load_models()
